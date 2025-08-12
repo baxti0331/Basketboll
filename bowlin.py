@@ -132,14 +132,12 @@ def throw_keyboard(user_id: int) -> InlineKeyboardMarkup:
             callback_data=f"throw_{count}"
         )
     builder.button(text="+ 3 ⭐️ за друга", callback_data=f"referral_{user_id}")
-    builder.button(text="🏀 для подарков 🎁", url="https://t.me/bankstars_support_bot")
+    builder.button(text="🏀 для подарков 🎁", url="https://t.me/basketbollgivsbot")
     if user_id == ADMIN_ID and ADMIN_ID != 0:
         builder.button(text="⚙️ Админ панель", callback_data="admin_menu")
     builder.adjust(2)
     return builder.as_markup()
 
-
-# === Исправленный блок админ-панели и клавиатур ===
 
 def admin_panel_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -151,6 +149,7 @@ def admin_panel_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_menu"),
         ]
     ])
+
 
 def admin_stats_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -192,8 +191,6 @@ async def admin_menu_handler(callback: CallbackQuery, state: FSMContext):
         await state.set_state(BroadcastStates.waiting_media)
         await callback.answer()
 
-
-# === Остальной твой код без изменений ===
 
 @dp.message(Command("start"))
 async def start_handler_with_referral(message: types.Message, command: CommandObject):
@@ -349,17 +346,36 @@ async def process_broadcast_content(message: types.Message, state: FSMContext):
 @dp.message(BroadcastStates.waiting_button_text)
 async def process_broadcast_button_text(message: types.Message, state: FSMContext):
     text = message.text
-    data = await state.get_data()
     if text.lower() == "нет":
-        kb = None
+        await state.update_data(button_text=None, button_url=None)
+        await send_broadcast(state, message)
     else:
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=text, url="https://t.me/bankstars_support_bot")]
-        ])
+        await state.update_data(button_text=text)
+        await message.answer("Теперь отправьте ссылку для кнопки.")
+        await state.set_state(BroadcastStates.waiting_button_url)
+
+
+@dp.message(BroadcastStates.waiting_button_url)
+async def process_broadcast_button_url(message: types.Message, state: FSMContext):
+    url = message.text
+    await state.update_data(button_url=url)
+    await send_broadcast(state, message)
+
+
+async def send_broadcast(state: FSMContext, message: types.Message):
+    data = await state.get_data()
     media_msg = data.get("media")
     content = data.get("content")
-    users = []
+    button_text = data.get("button_text")
+    button_url = data.get("button_url")
 
+    kb = None
+    if button_text and button_url:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=button_text, url=button_url)]
+        ])
+
+    users = []
     with sqlite3.connect("basketball_bot.db") as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT user_id FROM users")
@@ -372,6 +388,12 @@ async def process_broadcast_button_text(message: types.Message, state: FSMContex
                     await bot.send_photo(chat_id=user_id, photo=media_msg.photo[-1].file_id, caption=content, reply_markup=kb)
                 elif media_msg.video:
                     await bot.send_video(chat_id=user_id, video=media_msg.video.file_id, caption=content, reply_markup=kb)
+                elif media_msg.sticker:
+                    await bot.send_sticker(chat_id=user_id, sticker=media_msg.sticker.file_id)
+                    if content:
+                        await bot.send_message(chat_id=user_id, text=content, reply_markup=kb)
+                elif media_msg.animation:
+                    await bot.send_animation(chat_id=user_id, animation=media_msg.animation.file_id, caption=content, reply_markup=kb)
                 else:
                     await bot.send_message(chat_id=user_id, text=content, reply_markup=kb)
             else:
@@ -383,25 +405,24 @@ async def process_broadcast_button_text(message: types.Message, state: FSMContex
     await state.clear()
 
 
-@dp.message(Command("admin"))
-async def admin_command_handler(message: types.Message):
-    if message.from_user.id == ADMIN_ID:
-        await message.answer("⚙️ Админ панель:", reply_markup=admin_panel_keyboard())
-    else:
-        await message.answer("⛔ Доступ запрещён.")
-
-
 async def send_menu_with_admin(user_id: int, chat_id: int):
-    stars = get_user_stars(user_id)
     text = (
         "🎳 боулинг за подарки\n\n"
         "оформи страйк каждым броском\n"
-        "и получи крутой подарок 🧸💝🎁🌹\n\n"
-        f"💰 Баланс: {stars} ⭐️"
+        "и получи один из крутых подарков 🧸💝🎁🌹\n\n"
+        f"💰 Баланс: {get_user_stars(user_id)} ⭐️"
     )
-    await bot.send_message(chat_id, text, reply_markup=throw_keyboard(user_id))
+    await bot.send_message(chat_id=chat_id, text=text, reply_markup=throw_keyboard(user_id))
+
+
+async def on_startup():
+    init_db()
+
+
+async def main():
+    await on_startup()
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    init_db()
-    asyncio.run(dp.start_polling(bot))
+    asyncio.run(main())
