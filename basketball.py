@@ -124,7 +124,7 @@ def throw_keyboard(user_id: int) -> InlineKeyboardMarkup:
             callback_data=f"throw_{count}"
         )
     builder.button(text="+ 3 ⭐️ за друга", callback_data=f"referral_{user_id}")
-    builder.button(text="🎁 Подарки 🏆", url="https://t.me/bowlinggivsbot")
+    builder.button(text="  🎳за подарки ", url="https://t.me/bowlinggivsbot")
     if user_id == ADMIN_ID and ADMIN_ID != 0:
         builder.button(text="⚙️ Админ панель", callback_data="admin_menu")
     builder.adjust(2)
