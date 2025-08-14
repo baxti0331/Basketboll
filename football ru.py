@@ -21,7 +21,6 @@ GIFT_ID = os.getenv("GIFT_ID")
 
 GIFT_IDS = [gift.strip() for gift in GIFT_ID.split(",")] if GIFT_ID else []
 
-# Кол-во ударов -> цена в звёздах
 COSTS = {
     5: 1,
     3: 3,
@@ -31,8 +30,6 @@ COSTS = {
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
-
-# --- БАЗА ДАННЫХ ---
 
 def init_db():
     with sqlite3.connect("football_bot.db") as conn:
@@ -119,19 +116,17 @@ def get_stats():
         expense = gifts_count * 15
         return users_count, income, expense
 
-# --- КНОПКИ ---
-
-def football_keyboard(user_id: int) -> InlineKeyboardMarkup:
+def throw_keyboard(user_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for count in sorted(COSTS.keys(), reverse=True):
         builder.button(
-            text=f"⚽ {count} удар(ов) • {COSTS[count]}⭐️",
-            callback_data=f"kick_{count}"
+            text=f"⚽️ {count} ударов • {COSTS[count]}⭐️",
+            callback_data=f"throw_{count}"
         )
     builder.button(text="+ 3 ⭐️ за друга", callback_data=f"referral_{user_id}")
-    builder.button(text="🏀 баскет ", url="https://t.me/basketbollgivsbot")
+    builder.button(text="🏀 Баскет ", url="https://t.me/basketbollgivsbot")
     if user_id == ADMIN_ID and ADMIN_ID != 0:
-        builder.button(text="⚙️ Админ-панель", callback_data="admin_menu")
+        builder.button(text="⚙️ Админ панель", callback_data="admin_menu")
     builder.adjust(2)
     return builder.as_markup()
 
@@ -153,20 +148,18 @@ def admin_stats_keyboard() -> InlineKeyboardMarkup:
         ]
     ])
 
-# --- ОБРАБОТЧИКИ ---
-
 @dp.callback_query(F.data.startswith("admin_"))
 async def admin_menu_handler(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     if user_id != ADMIN_ID:
-        await callback.answer("⛔ Нет доступа", show_alert=True)
+        await callback.answer("⛔ Доступ запрещён", show_alert=True)
         return
 
     data = callback.data
 
     if data == "admin_menu":
         await callback.message.edit_text(
-            "⚙️ Админ-панель:",
+            "⚙️ Админ панель:",
             reply_markup=admin_panel_keyboard()
         )
         await callback.answer()
@@ -183,7 +176,7 @@ async def admin_menu_handler(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
 
     elif data == "admin_broadcast":
-        await callback.message.edit_text("📝 Отправьте текст или медиа для рассылки, либо напишите 'нет'.")
+        await callback.message.edit_text("📝 Пришлите медиа для рассылки или отправьте 'нет' если без медиа.")
         await state.set_state(BroadcastStates.waiting_media)
         await callback.answer()
 
@@ -204,11 +197,11 @@ async def process_referral(callback_query: CallbackQuery):
     url = f"https://t.me/{bot_info.username}?start={inviter_id}"
 
     text = (
-        "⚽ Возможность забить гол!\n"
-        "🎁 За каждый удар — подарки!\n\n"
-        "👫 Приглашайте друзей:\n"
+        "⚽️ Забей как можно больше голов и получи крутые подарки!\n"
+        "🎁 Подарки за каждый хет-трик!\n\n"
+        "👫 Пригласи друзей:\n"
         "— За каждого друга +3 ⭐️\n\n"
-        "🔥 Вот ваша ссылка:\n"
+        "🔥 Твой шанс забить уже здесь!\n"
         f"{url}"
     )
 
@@ -223,31 +216,31 @@ async def process_referral(callback_query: CallbackQuery):
 @dp.callback_query(F.data == "back_to_menu")
 async def back_to_menu(callback_query: CallbackQuery):
     await callback_query.message.edit_text(
-        "⚽ Футбол с подарками\n\n"
-        "Забей гол в каждом ударе\n"
-        "и получи отличные призы 🧸💝🎁🌹\n\n"
+        "⚽️ Футбол за подарки\n\n"
+        "Попади мячом в ворота каждым ударом\n"
+        "и получи один из крутых подарков 🧸💝🎁🌹\n\n"
         f"💰 Баланс: {get_user_stars(callback_query.from_user.id)} ⭐️",
-        reply_markup=football_keyboard(callback_query.from_user.id)
+        reply_markup=throw_keyboard(callback_query.from_user.id)
     )
     await callback_query.answer()
 
-@dp.callback_query(F.data.startswith("kick_"))
-async def process_kick(callback_query: CallbackQuery):
+@dp.callback_query(F.data.startswith("throw_"))
+async def process_throw(callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     count = int(callback_query.data.split("_")[1])
     price_stars = COSTS.get(count)
     if price_stars is None:
-        await callback_query.answer("⛔ Неверное количество ударов")
+        await callback_query.answer("⛔ Некорректный набор ударов")
         return
 
     await bot.send_invoice(
         chat_id=user_id,
-        title=f"Оплата за {count} удар(ов)",
-        description=f"Футбольная игра — {count} удар(ов)",
+        title=f"{count} ударов по воротам",
+        description=f"Набор для голов - {count} ударов",
         payload=f"football_{count}",
         provider_token=PROVIDER_TOKEN,
         currency="XTR",
-        prices=[LabeledPrice(label=f"{count} удар(ов)", amount=price_stars)],
+        prices=[LabeledPrice(label=f"{count} ударов", amount=price_stars)],
         start_parameter=f"football_{count}"
     )
     await callback_query.answer()
@@ -267,23 +260,23 @@ async def successful_payment(msg: types.Message):
         goals = 0
 
         for i in range(count):
-            dice = await bot.send_dice(user_id, emoji="⚽")
+            dice = await bot.send_dice(user_id, emoji="⚽️")
             await asyncio.sleep(2)
             if dice.dice.value >= 5:
-                results.append((i + 1, "ГОЛ! ✅"))
+                results.append((i + 1, "гол ✅"))
                 goals += 1
             else:
-                results.append((i + 1, "Промах ❌"))
+                results.append((i + 1, "мимо ❌"))
 
         throws_text = "\n".join([f"Удар #{i} – {res}" for i, res in results])
-        quote_msg = f"Результаты игры ⚽ {count} удар(ов)\n\n{throws_text}"
+        quote_msg = f"Результаты матча ⚽️ {count} ударов\n\n{throws_text}"
         await bot.send_message(user_id, f"```{quote_msg}```", parse_mode="Markdown")
 
         if goals == count:
             await asyncio.sleep(0.5)
-            await bot.send_message(user_id, "🎉 Все удары в цель!")
+            await bot.send_message(user_id, "🎉 Великолепная игра! Все удары были голами!")
             await asyncio.sleep(0.5)
-            await bot.send_message(user_id, "🎁 Ваш подарок отправляется...")
+            await bot.send_message(user_id, "🎁 Ваш подарок уже в пути...")
 
             if GIFT_IDS:
                 gift_to_send = random.choice(GIFT_IDS)
@@ -291,20 +284,20 @@ async def successful_payment(msg: types.Message):
                     await bot.send_gift(
                         chat_id=user_id,
                         gift_id=gift_to_send,
-                        text="🏆",
+                        text="Гоол🥳🏆",
                         pay_for_upgrade=False
                     )
                     record_gift_sent(user_id, gift_to_send)
                 except Exception as e:
-                    logging.error(f"Ошибка отправки подарка {gift_to_send} для {user_id}: {e}")
+                    logging.error(f"Ошибка отправки подарка {gift_to_send} пользователю {user_id}: {e}")
 
+            await asyncio.sleep(0.5)
+            await bot.send_message(user_id, "")
         else:
-            await bot.send_message(user_id, "Попробуйте ещё раз!")
+            await bot.send_message(user_id, "Попробуйте ещё раз! В следующий раз повезёт.")
 
         stars = get_user_stars(user_id)
-        await bot.send_message(user_id, f"💰 Баланс: {stars} ⭐️", reply_markup=football_keyboard(user_id))
-
-# --- РАССЫЛКА ---
+        await bot.send_message(user_id, f"💰 Баланс: {stars} ⭐️", reply_markup=throw_keyboard(user_id))
 
 class BroadcastStates(StatesGroup):
     waiting_media = State()
@@ -315,18 +308,18 @@ class BroadcastStates(StatesGroup):
 @dp.message(BroadcastStates.waiting_media)
 async def process_broadcast_media(message: types.Message, state: FSMContext):
     if message.text and message.text.lower() == "нет":
-        await message.answer("Отправьте текст рассылки.")
+        await message.answer("Отправьте текст для рассылки.")
         await state.set_state(BroadcastStates.waiting_content)
         await state.update_data(media=None)
     else:
         await state.update_data(media=message)
-        await message.answer("Отправьте текст рассылки.")
+        await message.answer("Отправьте текст для рассылки.")
         await state.set_state(BroadcastStates.waiting_content)
 
 @dp.message(BroadcastStates.waiting_content)
 async def process_broadcast_content(message: types.Message, state: FSMContext):
     await state.update_data(content=message.text)
-    await message.answer("Отправьте текст кнопки или напишите 'нет'.")
+    await message.answer("Отправьте текст кнопки для рассылки или 'нет' чтобы без кнопки.")
     await state.set_state(BroadcastStates.waiting_button_text)
 
 @dp.message(BroadcastStates.waiting_button_text)
@@ -337,7 +330,7 @@ async def process_broadcast_button_text(message: types.Message, state: FSMContex
         await send_broadcast(state, message)
     else:
         await state.update_data(button_text=text)
-        await message.answer("Отправьте ссылку для кнопки.")
+        await message.answer("Теперь отправьте ссылку для кнопки.")
         await state.set_state(BroadcastStates.waiting_button_url)
 
 @dp.message(BroadcastStates.waiting_button_url)
@@ -359,6 +352,7 @@ async def send_broadcast(state: FSMContext, message: types.Message):
             [InlineKeyboardButton(text=button_text, url=button_url)]
         ])
 
+    users = []
     with sqlite3.connect("football_bot.db") as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT user_id FROM users")
@@ -382,23 +376,24 @@ async def send_broadcast(state: FSMContext, message: types.Message):
             else:
                 await bot.send_message(chat_id=user_id, text=content, reply_markup=kb)
         except Exception as e:
-            logging.error(f"Ошибка отправки пользователю {user_id}: {e}")
+            logging.error(f"Ошибка при рассылке пользователю {user_id}: {e}")
 
     await message.answer("✅ Рассылка завершена.")
     await state.clear()
 
 async def send_menu_with_admin(user_id: int, chat_id: int):
     text = (
-        "⚽ Футбол с подарками\n\n"
-        "Забей гол в каждом ударе\n"
-        "и получи отличные призы 🧸💝🎁🌹\n\n"
+        "⚽️ Футбол за подарки\n\n"
+        "Попади мячом в ворота каждым ударом\n"
+        "и получи один из крутых подарков 🧸💝🎁🌹\n\n"
         f"💰 Баланс: {get_user_stars(user_id)} ⭐️"
     )
-    await bot.send_message(chat_id=chat_id, text=text, reply_markup=football_keyboard(user_id))
+    await bot.send_message(chat_id=chat_id, text=text, reply_markup=throw_keyboard(user_id))
 
 async def main():
     init_db()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
