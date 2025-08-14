@@ -120,7 +120,7 @@ def darts_keyboard(user_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for count in sorted(COSTS.keys(), reverse=True):
         builder.button(
-            text=f"🎯 {count} бросков • {COSTS[count]}⭐️",
+            text=f"🎯 {count} дротик• {COSTS[count]}⭐️",
             callback_data=f"throw_{count}"
         )
     builder.button(text="+ 3 ⭐️ за друга", callback_data=f"referral_{user_id}")
