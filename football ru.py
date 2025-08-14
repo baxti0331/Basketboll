@@ -22,9 +22,9 @@ GIFT_ID = os.getenv("GIFT_ID")
 GIFT_IDS = [gift.strip() for gift in GIFT_ID.split(",")] if GIFT_ID else []
 
 COSTS = {
-    5: 1,
-    3: 4,
-    2: 8,
+    3: 3,
+    2: 4,
+    1: 5,
     1: 10,
 }
 
