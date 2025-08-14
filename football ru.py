@@ -218,7 +218,7 @@ async def process_referral(callback_query: CallbackQuery):
 async def back_to_menu(callback_query: CallbackQuery):
     await callback_query.message.edit_text(
         "⚽️ Футбол за подарки\n\n"
-        "Попади мячом в ворота каждым ударом\n"
+        "Попади мячом в девятку каждым ударом\n"
         "и получи один из крутых подарков 🧸💝🎁🌹\n\n"
         f"💰 Баланс: {get_user_stars(callback_query.from_user.id)} ⭐️",
         reply_markup=throw_keyboard(callback_query.from_user.id)
@@ -258,14 +258,18 @@ async def successful_payment(msg: types.Message):
     if payload.startswith("football_"):
         count = int(payload.split("_")[1])
         results = []
-        goals = 0
+        devyatki = 0  # считаем только девятки
 
         for i in range(count):
             dice = await bot.send_dice(user_id, emoji="⚽️")
             await asyncio.sleep(2)
-            if dice.dice.value >= 3:
-                results.append((i + 1, "гол ✅"))
-                goals += 1
+
+            value = dice.dice.value
+            if value == 6:
+                results.append((i + 1, "гол в девятку 🎯✅"))
+                devyatki += 1
+            elif value >= 3:
+                results.append((i + 1, "обычный гол ❌"))
             else:
                 results.append((i + 1, "мимо ❌"))
 
@@ -273,9 +277,9 @@ async def successful_payment(msg: types.Message):
         quote_msg = f"Результаты матча ⚽️ {count} ударов\n\n{throws_text}"
         await bot.send_message(user_id, f"```{quote_msg}```", parse_mode="Markdown")
 
-        if goals == count:
+        if devyatki == count:
             await asyncio.sleep(0.5)
-            await bot.send_message(user_id, "🎉 Великолепная игра! Все удары были голами!")
+            await bot.send_message(user_id, "🎉 Великолепная игра! Все удары в девятку!")
             await asyncio.sleep(0.5)
             await bot.send_message(user_id, "🎁 Ваш подарок уже в пути...")
 
@@ -285,17 +289,14 @@ async def successful_payment(msg: types.Message):
                     await bot.send_gift(
                         chat_id=user_id,
                         gift_id=gift_to_send,
-                        text="Гоол🥳🏆",
+                        text="Гооол в девятку🥳🏆",
                         pay_for_upgrade=False
                     )
                     record_gift_sent(user_id, gift_to_send)
                 except Exception as e:
                     logging.error(f"Ошибка отправки подарка {gift_to_send} пользователю {user_id}: {e}")
-
-            await asyncio.sleep(0.5)
-            await bot.send_message(user_id, "")
         else:
-            await bot.send_message(user_id, "Попробуйте ещё раз! В следующий раз повезёт.")
+            await bot.send_message(user_id, "Попробуйте ещё раз! Подарок только за серию девяток 🎯")
 
         stars = get_user_stars(user_id)
         await bot.send_message(user_id, f"💰 Баланс: {stars} ⭐️", reply_markup=throw_keyboard(user_id))
@@ -353,7 +354,6 @@ async def send_broadcast(state: FSMContext, message: types.Message):
             [InlineKeyboardButton(text=button_text, url=button_url)]
         ])
 
-    users = []
     with sqlite3.connect("football_bot.db") as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT user_id FROM users")
@@ -385,7 +385,7 @@ async def send_broadcast(state: FSMContext, message: types.Message):
 async def send_menu_with_admin(user_id: int, chat_id: int):
     text = (
         "⚽️ Футбол за подарки\n\n"
-        "Попади мячом в ворота каждым ударом\n"
+        "Попади мячом в девятку каждым ударом\n"
         "и получи один из крутых подарков 🧸💝🎁🌹\n\n"
         f"💰 Баланс: {get_user_stars(user_id)} ⭐️"
     )
@@ -396,5 +396,4 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
