@@ -124,7 +124,8 @@ def dice_keyboard(user_id: int) -> InlineKeyboardMarkup:
             callback_data=f"roll_{count}"
         )
     builder.button(text="+ 3 ⭐️ за друга", callback_data=f"referral_{user_id}")
-    builder.button(text="Купить⭐️-1,3 рубля ", url="https://t.me/bankstarstgbot")
+    builder.button(text="⚽️ Футбол", url="https://t.me/footballgivsbot")
+    builder.button(text="Купить⭐️", url="https://t.me/bankstarstgbot")
     if user_id == ADMIN_ID and ADMIN_ID != 0:
         builder.button(text="⚙️ Админ панель", callback_data="admin_menu")
     builder.adjust(2)
