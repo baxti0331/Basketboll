@@ -336,8 +336,8 @@ async def successful_payment(msg: types.Message):
 
         for i in range(count):
             dice = await bot.send_dice(user_id, emoji="🏀")
-            await asyncio.sleep(1,5)
-            if dice.dice.value >= 5:
+            await asyncio.sleep(2)
+            if dice.dice.value >= 4:
                 results.append((i + 1, "попал ✅"))
                 hits += 1
             else:
