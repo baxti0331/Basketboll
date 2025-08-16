@@ -40,10 +40,10 @@ BROADCAST_PROGRESS_EVERY_BATCHES = int(os.getenv("BROADCAST_PROGRESS_EVERY", "10
 
 # -------------------- ИГРОВАЯ ЭКОНОМИКА --------------------
 COSTS = {
-    5: 1,
-    3: 3,
-    2: 5,
-    1: 1,
+    5: 2,
+    3: 5,
+    2: 7,
+    1: 10,
 }
 
 bot = Bot(token=API_TOKEN)
