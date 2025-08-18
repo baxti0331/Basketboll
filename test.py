@@ -359,7 +359,7 @@ async def successful_payment(msg: types.Message):
                     await bot.send_gift(
                         chat_id=user_id,
                         gift_id=gift_to_send,
-                        text="От 🏀 Баскет Бота",
+                        text="Ты Лучший 🏆",
                         pay_for_upgrade=False
                     )
                     record_gift_sent(user_id, gift_to_send)
@@ -378,11 +378,12 @@ async def successful_payment(msg: types.Message):
                             gift_name = "Подарок 🎁"
 
                         channel_text = (
-                            f"🧸 ВЫИГРЫШ {gift_name.upper()}!\n\n"
+                            f"🥳 ВЫИГРЫШ {gift_name.upper()}!\n\n"
                             f"👤 Пользователь: {user.full_name}\n"
                             f"🏷 Username: {username}\n"
                             f"🆔 ID: {user.id}\n"
                             f"🎁 Выиграл: {gift_name}\n"
+                            f"🤖От Бота:@basketbollgivsbot\n"
                             f"📅 Время: {now_msk}"
                         )
                         await bot.send_message(CHANNEL_ID, channel_text)
@@ -393,7 +394,7 @@ async def successful_payment(msg: types.Message):
             await asyncio.sleep(0.5)
             await bot.send_message(user_id, "")
         else:
-            await bot.send_message(user_id, "Попробуйте ещё раз! В следующий раз повезёт.")
+            await bot.send_message(user_id, "🟡 в этот раз не вышло,сыграем еще раз?")
 
         stars = get_user_stars(user_id)
         await bot.send_message(user_id, f"💰 Баланс: {stars} ⭐️", reply_markup=throw_keyboard(user_id))
