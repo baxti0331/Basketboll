@@ -41,14 +41,14 @@ BROADCAST_PROGRESS_EVERY_BATCHES = int(os.getenv("BROADCAST_PROGRESS_EVERY", "10
 # -------------------- ИГРОВАЯ ЭКОНОМИКА --------------------
 # Стоимость набора бросков в XTR (внутр. оплата инвойсом)
 COSTS = {
-    5: 2,
+    5: 1,
     3: 5,
     2: 7,
     1: 10,
 }
 
 # Порог звёзд за рефералов для автоматического подарка
-REFERRAL_GIFT_THRESHOLD = 40
+REFERRAL_GIFT_THRESHOLD = 80
 REFERRAL_REWARD_PER_FRIEND = 3
 
 bot = Bot(token=API_TOKEN)
