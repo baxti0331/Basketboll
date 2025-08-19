@@ -246,7 +246,7 @@ def throw_keyboard(user_id: int) -> InlineKeyboardMarkup:
             callback_data=f"throw_{count}"
         )
     builder.button(text="🏆 Топ ", callback_data="top_referrals")
-    builder.button(text="+ 3 ⭐️ за друга", callback_data=f"referral_{user_id}")
+    builder.button(text="Пригласить", callback_data=f"referral_{user_id}")
     builder.button(text="  🎳 Боулинг ", url="https://t.me/bowlinggivsbot")
     builder.button(text="Купить⭐️", url="https://t.me/bankstarstgbot")
     if user_id == ADMIN_ID and ADMIN_ID != 0:
@@ -509,7 +509,7 @@ async def successful_payment(msg: types.Message):
         for i in range(count):
             dice = await bot.send_dice(user_id, emoji="🏀")
             await asyncio.sleep(2)
-            if dice.dice.value >= 4:
+            if dice.dice.value >= 5:
                 results.append((i + 1, "попал ✅"))
                 hits += 1
             else:
