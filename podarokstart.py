@@ -453,7 +453,7 @@ async def redeem_code_handler(message: types.Message, state: FSMContext):
         return
 
     if has_received_gift(message.from_user.id):
-        await message.answer("⚠️ Вы уже получали подарок.")
+        await message.answer("⚠️ Кто-то уже получал подарок.")
         await state.clear()
         return
 
