@@ -25,6 +25,7 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID", "0"))
 
 DB_PATH = "gift_bot.db"
 PLACEHOLDER_IMAGE_URL = "https://media1.tenor.com/m/_wvp0xzvQQgAAAAd/ape-monkey.gif"
+
 # -------------------- DATABASE --------------------
 def db_connect():
     conn = sqlite3.connect(DB_PATH)
@@ -188,22 +189,6 @@ def admin_panel_keyboard() -> InlineKeyboardMarkup:
         ]
     ])
 
-# -------------------- ПУБЛИКАЦИЯ В КАНАЛ --------------------
-async def publish_gift_to_channel(user: types.User, gift_name: str):
-    if CHANNEL_ID == 0:
-        return
-    username = f"@{user.username}" if user.username else "Нет"
-    now_msk = (datetime.datetime.utcnow() + datetime.timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S MSK")
-    await bot.send_message(
-        CHANNEL_ID,
-        f"🎁 ВЫИГРЫШ!\n\n"
-        f"👤 Пользователь: {user.full_name}\n"
-        f"🏷 Username: {username}\n"
-        f"🆔 ID: {user.id}\n"
-        f"🎁 Получил: {gift_name}\n"
-        f"📅 Время: {now_msk}"
-    )
-
 # -------------------- START --------------------
 @dp.message(CommandStart())
 async def start_handler(message: types.Message, state: FSMContext):
@@ -229,10 +214,18 @@ async def start_handler(message: types.Message, state: FSMContext):
                 )
                 decrease_gift_count(gift["gift_id"])
                 mark_gift_received(user_id)
-
-                # Публикация в канале
-                await publish_gift_to_channel(message.from_user, gift["name"])
-
+                if CHANNEL_ID != 0:
+                    username = f"@{message.from_user.username}" if message.from_user.username else "Нет"
+                    now_msk = (datetime.datetime.utcnow() + datetime.timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S MSK")
+                    await bot.send_message(
+                        CHANNEL_ID,
+                        f"🎁 ВЫИГРЫШ!\n\n"
+                        f"👤 Пользователь: {message.from_user.full_name}\n"
+                        f"🏷 Username: {username}\n"
+                        f"🆔 ID: {user_id}\n"
+                        f"🎁 Получил: {gift['name']}\n"
+                        f"📅 Время: {now_msk}"
+                    )
             except Exception as e:
                 logger.error(f"Ошибка при авто-выдаче подарка {gift['name']} пользователю {user_id}: {e}")
 
@@ -240,7 +233,7 @@ async def start_handler(message: types.Message, state: FSMContext):
         await message.answer("🔑 Введите код для получения подарка:")
         await state.set_state(AdminStates.awaiting_redeem_code)
 
-# -------------------- ADMIN CALLBACKS --------------------
+# -------------------- ADMIN CALLBACK HANDLER --------------------
 @dp.callback_query(F.data.startswith("admin_"))
 async def admin_menu_handler(callback: types.CallbackQuery, state: FSMContext):
     global gift_enabled, redeem_enabled
@@ -249,23 +242,22 @@ async def admin_menu_handler(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer("⛔ Доступ запрещён", show_alert=True)
         return
 
-    data = callback.data
-    if data == "admin_broadcast":
+    if callback.data == "admin_broadcast":
         await callback.message.answer("Отправьте сообщение для рассылки.")
         await state.set_state(AdminStates.awaiting_broadcast)
 
-    elif data == "admin_topup":
+    elif callback.data == "admin_topup":
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Пополнить на 100 XTR", callback_data="topup_100")],
             [InlineKeyboardButton(text="Пополнить на 150 XTR", callback_data="topup_150")]
         ])
         await callback.message.answer("Выберите сумму пополнения:", reply_markup=kb)
 
-    elif data == "admin_add_gift":
+    elif callback.data == "admin_add_gift":
         await callback.message.answer("Введите название подарка:")
         await state.set_state(AdminStates.awaiting_gift_name)
 
-    elif data == "admin_add_code":
+    elif callback.data == "admin_add_code":
         with db_connect() as conn:
             cur = conn.cursor()
             cur.execute("SELECT gift_id, name FROM gifts ORDER BY name COLLATE NOCASE")
@@ -274,11 +266,14 @@ async def admin_menu_handler(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.answer("❌ Сначала добавьте хотя бы один подарок.")
             return
         kb = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text=g["name"], callback_data=f"choose_gift_{g['gift_id']}")] for g in gifts]
+            inline_keyboard=[
+                [InlineKeyboardButton(text=g["name"], callback_data=f"choose_gift_{g['gift_id']}")]
+                for g in gifts
+            ]
         )
         await callback.message.answer("🎁 Выберите подарок для выдачи по коду:", reply_markup=kb)
 
-    elif data == "admin_view_gifts":
+    elif callback.data == "admin_view_gifts":
         with db_connect() as conn:
             cur = conn.cursor()
             cur.execute("SELECT gift_id, name, total_count, method FROM gifts ORDER BY name COLLATE NOCASE")
@@ -292,25 +287,25 @@ async def admin_menu_handler(callback: types.CallbackQuery, state: FSMContext):
             ])
             await callback.message.answer(text)
 
-    elif data == "admin_toggle_gifts":
+    elif callback.data == "admin_toggle_gifts":
         gift_enabled = not gift_enabled
         redeem_enabled = False
         status = "включена" if gift_enabled else "отключена"
         await callback.message.answer(f"🎯 Автовыдача подарков теперь {status}")
 
-    elif data == "admin_redeem_mode":
+    elif callback.data == "admin_redeem_mode":
         redeem_enabled = not redeem_enabled
         gift_enabled = False
         status = "активна" if redeem_enabled else "выключена"
         await callback.message.answer(f"🎯 Выдача по коду {status}\n(попросите пользователей ввести код)")
 
-    elif data == "admin_reset_raffle":
+    elif callback.data == "admin_reset_raffle":
         reset_raffle()
         gift_enabled = False
         redeem_enabled = False
         await callback.message.answer("🔄 Розыгрыш сброшен, выдача остановлена.")
 
-# -------------------- ADD GIFT --------------------
+# -------------------- ДОБАВЛЕНИЕ ПОДАРКА --------------------
 @dp.message(AdminStates.awaiting_gift_name)
 async def add_gift_name_handler(message: types.Message, state: FSMContext):
     await state.update_data(gift_name=message.text.strip())
@@ -321,8 +316,10 @@ async def add_gift_name_handler(message: types.Message, state: FSMContext):
 async def add_gift_id_handler(message: types.Message, state: FSMContext):
     await state.update_data(gift_id=message.text.strip())
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎯 Автоматически", callback_data="method_auto"),
-         InlineKeyboardButton(text="🔑 По коду", callback_data="method_code")]
+        [
+            InlineKeyboardButton(text="🎯 Автоматически", callback_data="method_auto"),
+            InlineKeyboardButton(text="🔑 По коду", callback_data="method_code")
+        ]
     ])
     await message.answer("Выберите метод выдачи:", reply_markup=kb)
     await state.set_state(AdminStates.awaiting_gift_method)
@@ -342,14 +339,17 @@ async def add_gift_total_handler(message: types.Message, state: FSMContext):
     gift_method = data.get("gift_method")
     try:
         total = int(message.text.strip())
-        if total < 0: raise ValueError
+        if total < 0:
+            raise ValueError
         add_gift(gift_id=gift_id, name=gift_name, method=gift_method, total_count=total)
-        await message.answer(f"✅ Подарок '{gift_name}' (ID {gift_id}) добавлен: {total} шт., метод: {'Авто' if gift_method=='auto' else 'По коду'}.")
+        await message.answer(
+            f"✅ Подарок '{gift_name}' (ID {gift_id}) добавлен: {total} шт., метод: {'Авто' if gift_method=='auto' else 'По коду'}."
+        )
     except Exception:
         await message.answer("❌ Некорректное число. Попробуйте ещё раз командой в админке.")
     await state.clear()
 
-# -------------------- ADD CODE --------------------
+# -------------------- ПРИВЯЗКА КОДА К ПОДАРКУ --------------------
 @dp.callback_query(F.data.startswith("choose_gift_"))
 async def choose_gift_for_code(callback: types.CallbackQuery, state: FSMContext):
     gift_id = callback.data.split("_", 2)[2]
@@ -365,7 +365,8 @@ async def choose_gift_for_code(callback: types.CallbackQuery, state: FSMContext)
 async def set_code_quantity(message: types.Message, state: FSMContext):
     try:
         total = int(message.text.strip())
-        if total <= 0: raise ValueError
+        if total <= 0:
+            raise ValueError
     except Exception:
         await message.answer("❌ Введите положительное целое число.")
         return
@@ -403,6 +404,12 @@ async def broadcast_handler(message: types.Message, state: FSMContext):
                 await bot.send_message(uid, message.text)
             elif message.photo:
                 await bot.send_photo(uid, message.photo[-1].file_id, caption=message.caption)
+            elif message.sticker:
+                await bot.send_sticker(uid, message.sticker.file_id)
+            elif message.animation:
+                await bot.send_animation(uid, message.animation.file_id, caption=message.caption)
+            elif message.video:
+                await bot.send_video(uid, message.video.file_id, caption=message.caption)
             success += 1
         except Exception as e:
             logger.warning(f"Не удалось отправить пользователю {uid}: {e}")
@@ -431,14 +438,14 @@ async def topup_handler(callback: types.CallbackQuery):
     )
 
 @dp.pre_checkout_query()
-async def pre_checkout_query_handler(query: types.PreCheckoutQuery):
-    await query.answer(ok=True)
+async def precheckout(pre_q: types.PreCheckoutQuery):
+    await bot.answer_pre_checkout_query(pre_q.id, ok=True)
 
-@dp.message(types.MessageType.SUCCESSFUL_PAYMENT)
+@dp.message(F.content_type == "successful_payment")
 async def successful_payment_handler(message: types.Message):
     amount = message.successful_payment.total_amount
     add_payment(message.from_user.id, amount)
-    await message.answer(f"✅ Оплата {amount} успешно зачислена!")
+    await message.answer(f"✅ Пополнение успешно! Сумма: {amount} XTR")
 
 # -------------------- REDEEM CODE --------------------
 @dp.message(AdminStates.awaiting_redeem_code)
@@ -453,14 +460,14 @@ async def redeem_code_handler(message: types.Message, state: FSMContext):
         return
 
     if has_received_gift(message.from_user.id):
-        await message.answer("⚠️ Кто-то уже получал подарок.")
+        await message.answer("⚠️ Вы уже получали подарок.")
         await state.clear()
         return
 
     gift = get_gift_by_id(gift_id)
     if not gift or gift["total_count"] <= 0:
         redeem_enabled = False
-        await message.answer("😢 Упс, подарков не осталось.")
+        await message.answer("😢 Упс, не успел! Подарков не осталось.\nСледите за нашими ботами — скоро будут коды.")
         await asyncio.sleep(2)
         await bot.send_photo(
             chat_id=message.chat.id,
@@ -482,8 +489,19 @@ async def redeem_code_handler(message: types.Message, state: FSMContext):
         decrease_gift_count(gift_id)
         await message.answer("✅ Подарок успешно выдан!")
 
-        # Публикация в канале
-        await publish_gift_to_channel(message.from_user, gift["name"])
+        if CHANNEL_ID != 0:
+            username = f"@{message.from_user.username}" if message.from_user.username else "Нет"
+            now_msk = (datetime.datetime.utcnow() + datetime.timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S MSK")
+            await bot.send_message(
+                CHANNEL_ID,
+                f"🎁 ВЫИГРЫШ ПО КОДУ!\n\n"
+                f"👤 Пользователь: {message.from_user.full_name}\n"
+                f"🏷 Username: {username}\n"
+                f"🆔 ID: {message.from_user.id}\n"
+                f"🎁 Получил: {gift['name']}\n"
+                f"📅 Время: {now_msk}\n"
+                f"🔑 Код: {code}"
+            )
 
         updated = get_gift_by_id(gift_id)
         if updated and updated["total_count"] <= 0:
@@ -497,5 +515,4 @@ async def redeem_code_handler(message: types.Message, state: FSMContext):
 # -------------------- RUN --------------------
 if __name__ == "__main__":
     init_db()
-    import asyncio
     asyncio.run(dp.start_polling(bot))
