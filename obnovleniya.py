@@ -48,7 +48,7 @@ COSTS = {
 }
 
 # Порог звёзд за рефералов для автоматического подарка
-REFERRAL_GIFT_THRESHOLD = 200
+REFERRAL_GIFT_THRESHOLD = 2000000
 REFERRAL_REWARD_PER_FRIEND = 2
 
 bot = Bot(token=API_TOKEN)
